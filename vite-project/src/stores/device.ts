@@ -1,0 +1,158 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import { api } from '../api'
+import type { Device, DataPoint } from '../api/mockApi'
+
+export const useDeviceStore = defineStore('device', () => {
+  const devices = ref<Device[]>([])
+  const currentDevice = ref<Device | null>(null)
+  const deviceData = ref<DataPoint[]>([])
+  const loading = ref(false)
+
+  const onlineCount = computed(() => devices.value.filter(d => d.status === 'online').length)
+  const offlineCount = computed(() => devices.value.filter(d => d.status === 'offline').length)
+  const warningCount = computed(() => devices.value.filter(d => d.status === 'warning').length)
+  const totalCount = computed(() => devices.value.length)
+
+  async function fetchDevices() {
+    loading.value = true
+    try {
+      devices.value = await api.getDevices()
+      return devices.value
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchDeviceById(id: string) {
+    loading.value = true
+    try {
+      currentDevice.value = await api.getDeviceById(id)
+      return currentDevice.value
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function createDevice(deviceData: any) {
+    loading.value = true
+    try {
+      const d = await api.createDevice(deviceData)
+      devices.value.push(d)
+      return d
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function updateDevice(id: string, updates: any) {
+    loading.value = true
+    try {
+      const updated = await api.updateDevice(id, updates)
+      const index = devices.value.findIndex(d => d.id === id)
+      if (index !== -1) devices.value[index] = updated
+      if (currentDevice.value?.id === id) currentDevice.value = updated
+      return updated
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function deleteDevice(id: string) {
+    loading.value = true
+    try {
+      await api.deleteDevice(id)
+      devices.value = devices.value.filter(d => d.id !== id)
+      if (currentDevice.value?.id === id) currentDevice.value = null
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function sendCommand(deviceId: string, command: string, params?: Record<string, any>) {
+    return await api.sendCommand(deviceId, command, params)
+  }
+
+  async function fetchDeviceData(deviceId?: string, sensorId?: string, limit?: number, from?: string, to?: string) {
+    deviceData.value = await api.getDeviceData(deviceId, sensorId, limit, from, to)
+    return deviceData.value
+  }
+
+  let pollTimer: ReturnType<typeof setInterval> | null = null
+
+  function startRealtimeUpdates(interval: number = 3000) {
+    if (pollTimer) clearInterval(pollTimer)
+    pollTimer = setInterval(async () => {
+      try {
+        const fresh: Device[] = await api.getDevices()
+        devices.value = fresh
+        if (currentDevice.value) {
+          const updated = fresh.find((d: Device) => d.id === currentDevice.value!.id)
+          if (updated) currentDevice.value = updated
+        }
+      } catch { /* ignore poll errors */ }
+    }, interval)
+  }
+
+  /** 静默更新设备值：只合并变化字段，不替换对象，避免整表重渲染 */
+  async function silentRefreshDevices() {
+    try {
+      const fresh: any[] = await api.getDevices()
+      for (const fd of fresh) {
+        const existing = devices.value.find(d => d.id === fd.id)
+        if (!existing) continue
+        // 只更新变化的字段
+        existing.status = fd.status
+        existing.lastActive = fd.lastActive
+        // 合并传感器值
+        for (const fs of (fd.sensors || [])) {
+          const es = (existing as any).sensors?.find((s: any) => s.id === fs.id)
+          if (es) es.value = fs.value
+        }
+        // 合并执行器值
+        for (const fa of (fd.actuators || [])) {
+          const ea = (existing as any).actuators?.find((a: any) => a.id === fa.id)
+          if (ea) ea.value = fa.value
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  function stopRealtimeUpdates() {
+    if (pollTimer) {
+      clearInterval(pollTimer)
+      pollTimer = null
+    }
+  }
+
+  /** 单设备自动刷新：只请求当前设备，比拉全部设备更高效 */
+  function startPollDevice(deviceId: string, interval: number = 3000) {
+    stopRealtimeUpdates()
+    pollTimer = setInterval(async () => {
+      try {
+        const updated = await api.getDeviceById(deviceId)
+        if (currentDevice.value?.id === deviceId) {
+          currentDevice.value = updated
+        }
+      } catch { /* ignore */ }
+    }, interval)
+  }
+
+  function reset() {
+    stopRealtimeUpdates()
+    devices.value = []
+    currentDevice.value = null
+    deviceData.value = []
+    loading.value = false
+  }
+
+  return {
+    devices, currentDevice, deviceData, loading,
+    onlineCount, offlineCount, warningCount, totalCount,
+    fetchDevices, fetchDeviceById,
+    createDevice, updateDevice, deleteDevice,
+    sendCommand, fetchDeviceData,
+    startRealtimeUpdates, stopRealtimeUpdates, startPollDevice, silentRefreshDevices,
+    reset
+  }
+})
