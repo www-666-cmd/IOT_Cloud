@@ -1,8 +1,14 @@
 <script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue'
 import { useThemeStore } from './stores/theme'
+import { useWebSocket } from './stores/websocket'
 
 const themeStore = useThemeStore()
 themeStore.applyTheme(themeStore.mode)
+
+const ws = useWebSocket()
+onMounted(() => ws.connect())
+onUnmounted(() => ws.disconnect())
 </script>
 
 <template>

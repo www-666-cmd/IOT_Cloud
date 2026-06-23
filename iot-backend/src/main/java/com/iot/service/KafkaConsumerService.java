@@ -1,8 +1,10 @@
 package com.iot.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.iot.model.Device;
+import com.iot.repository.DeviceRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
@@ -11,10 +13,9 @@ import org.springframework.stereotype.Service;
 import java.util.Map;
 
 /**
- * Kafka 消费者 - 消费设备数据并进行多路处理：
- * 1. 更新 Redis 设备状态
- * 2. 触发告警规则评估
- * 3. 写入时序数据库 (TDengine/JPA)
+ * Kafka 消费者 — 从 Kafka 接收数据并走完整数据管线：
+ * Device → HTTP/MQTT → Kafka → Consumer → DataService.fromKafka()
+ *                                         → TDengine / PostgreSQL / Redis / Alerts
  */
 @Service
 @ConditionalOnProperty(name = "app.kafka.enabled", havingValue = "true")
@@ -22,12 +23,20 @@ import java.util.Map;
 public class KafkaConsumerService {
 
     private final ObjectMapper objectMapper;
+    private final DataService dataService;
+    private final DeviceRepository deviceRepository;
 
-    @Autowired(required = false)
-    private RedisCacheService redisCacheService;
+    @Value("${app.kafka.topics.device-telemetry}")
+    private String telemetryTopic;
 
-    public KafkaConsumerService(ObjectMapper objectMapper) {
+    @Value("${app.kafka.topics.device-status}")
+    private String statusTopic;
+
+    public KafkaConsumerService(ObjectMapper objectMapper, DataService dataService,
+                                 DeviceRepository deviceRepository) {
         this.objectMapper = objectMapper;
+        this.dataService = dataService;
+        this.deviceRepository = deviceRepository;
     }
 
     @SuppressWarnings("unchecked")
@@ -36,17 +45,31 @@ public class KafkaConsumerService {
         try {
             Map<String, Object> data = objectMapper.readValue(message, Map.class);
             String deviceId = (String) data.get("deviceId");
+            String sensorId = (String) data.get("sensorId");
+            String sensorType = (String) data.get("sensorType");
+            Number rawValue = data.get("value") instanceof Number n ? n : null;
+            String unit = (String) data.get("unit");
+            Number rawTimestamp = data.get("timestamp") instanceof Number n ? n : null;
 
-            // 更新 Redis 设备影子
-            if (redisCacheService != null) {
-                redisCacheService.setDeviceShadow(deviceId, data);
-                redisCacheService.setDeviceOnline(deviceId, true);
+            if (deviceId == null || sensorId == null || rawValue == null) {
+                log.warn("Kafka telemetry message missing fields: deviceId={} sensorId={}", deviceId, sensorId);
+                ack.acknowledge();
+                return;
             }
 
-            log.debug("Processed telemetry: device={}", deviceId);
+            Long ownerId = deviceRepository.findByDeviceId(deviceId)
+                    .map(Device::getOwnerId).orElse(null);
+
+            // 走完整管线：TDengine → Redis → PostgreSQL → Alerts（不重复发 Kafka）
+            dataService.fromKafka(deviceId, sensorId, sensorType,
+                    rawValue.doubleValue(), unit, ownerId);
+
+            log.debug("Kafka consumer processed: device={} sensor={} value={}", deviceId, sensorId, rawValue);
             ack.acknowledge();
         } catch (Exception e) {
-            log.error("Failed to process telemetry message", e);
+            log.error("Kafka consumer failed to process telemetry", e);
+            // 仍然 ack，避免消息堆积阻塞消费
+            ack.acknowledge();
         }
     }
 
@@ -58,25 +81,29 @@ public class KafkaConsumerService {
             String deviceId = (String) data.get("deviceId");
             String status = (String) data.get("status");
 
-            boolean online = "ONLINE".equalsIgnoreCase(status);
-            if (redisCacheService != null) {
-                redisCacheService.setDeviceOnline(deviceId, online);
+            if (deviceId != null && status != null) {
+                deviceRepository.findByDeviceId(deviceId).ifPresent(d -> {
+                    d.setStatus(status.toUpperCase());
+                    d.setLastActive(java.time.LocalDateTime.now());
+                    deviceRepository.save(d);
+                });
+                log.info("Kafka consumer: device {} status → {}", deviceId, status);
             }
-
-            log.debug("Device status changed: {} -> {}", deviceId, status);
             ack.acknowledge();
         } catch (Exception e) {
-            log.error("Failed to process status message", e);
+            log.error("Kafka consumer failed to process status", e);
+            ack.acknowledge();
         }
     }
 
     @KafkaListener(topics = "${app.kafka.topics.alert-events}", containerFactory = "kafkaListenerContainerFactory")
     public void onAlertEvent(String message, Acknowledgment ack) {
         try {
-            log.info("Alert event received: {}", message);
+            log.info("Kafka alert event received: {}", message);
             ack.acknowledge();
         } catch (Exception e) {
-            log.error("Failed to process alert event", e);
+            log.error("Kafka consumer failed to process alert", e);
+            ack.acknowledge();
         }
     }
 }

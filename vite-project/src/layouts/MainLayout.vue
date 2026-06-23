@@ -1,3 +1,4 @@
+<!-- 布局组件 -->
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -327,8 +328,8 @@ function handleMenuSelect(index: string) {
 
       <el-main class="main-content">
         <router-view v-slot="{ Component }">
-          <transition name="slide-fade" mode="out-in" appear>
-            <keep-alive :max="6">
+          <transition name="page-fade">
+            <keep-alive :max="8">
               <component :is="Component" />
             </keep-alive>
           </transition>
@@ -347,14 +348,27 @@ function handleMenuSelect(index: string) {
 .sidebar {
   background-color: var(--bg-sidebar);
   border-right: 1px solid var(--sidebar-border);
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.22s cubic-bezier(0.25, 0.1, 0.25, 1);
   position: relative;
   flex-shrink: 0;
   overflow: hidden;
+  will-change: width;
+  contain: layout style;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 .sidebar.dragging {
   transition: none !important;
+}
+
+/* 折叠时 logo 文字和菜单文字平滑隐藏 */
+.logo-text {
+  transition: opacity 0.15s ease;
+}
+
+.sidebar-menu :deep(.el-menu-item > span) {
+  transition: opacity 0.15s ease;
 }
 
 .sidebar-resize-handle {
@@ -365,7 +379,12 @@ function handleMenuSelect(index: string) {
   height: 100%;
   cursor: col-resize;
   z-index: 20;
-  transition: background-color 0.2s;
+  opacity: 0;
+  transition: opacity 0.15s, background-color 0.2s;
+}
+
+.sidebar:hover .sidebar-resize-handle {
+  opacity: 1;
 }
 
 .sidebar-resize-handle:hover {
@@ -523,21 +542,11 @@ function handleMenuSelect(index: string) {
   opacity: 0;
 }
 
-/* GPU 加速页面过渡 */
-.slide-fade-enter-active {
-  transition: opacity 0.15s ease-out, transform 0.15s ease-out;
-}
-.slide-fade-leave-active {
-  transition: opacity 0.1s ease-in, transform 0.1s ease-in;
-}
-.slide-fade-enter-from {
-  opacity: 0;
-  transform: translateY(6px);
-}
-.slide-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
-}
+/* 页面切换：仅 opacity，GPU composite 层，无 layout/paint */
+.page-fade-enter-active { transition: opacity 0.1s ease-out; }
+.page-fade-leave-active { transition: opacity 0.06s ease-in; position: absolute; }
+.page-fade-enter-from,
+.page-fade-leave-to { opacity: 0; }
 
 /* Global theme overrides for Element Plus */
 :deep(.el-card) {

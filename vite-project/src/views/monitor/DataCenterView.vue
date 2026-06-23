@@ -1,4 +1,5 @@
 <script setup lang="ts">
+defineOptions({ name: 'DataCenter' })
 import { ref, onMounted, computed } from 'vue'
 import { useDeviceStore } from '../../stores/device'
 import { ElMessage } from 'element-plus'

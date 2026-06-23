@@ -1,4 +1,5 @@
 <script setup lang="ts">
+defineOptions({ name: 'DataDisplay' })
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useDeviceStore } from '../../stores/device'
 import {

@@ -23,6 +23,9 @@ public class DataService {
     private final DataPointRepository dataPointRepository;
     private final AlertService alertService;
     private final SecurityUtils securityUtils;
+
+    // 防 Kafka 消费 → 再生产的循环
+    private static final ThreadLocal<Boolean> FROM_KAFKA = ThreadLocal.withInitial(() -> false);
     private final DeviceRepository deviceRepository;
     private final SensorRepository sensorRepository;
 
@@ -47,6 +50,9 @@ public class DataService {
 
     @Autowired(required = false)
     private KafkaProducerService kafkaProducer;
+
+    @Autowired(required = false)
+    private WebSocketPushService wsPush;
 
     // PostgreSQL 批量写入缓冲区
     private final List<DataPoint> writeBuffer = new ArrayList<>(500);
@@ -170,7 +176,25 @@ public class DataService {
     public synchronized DataPoint addDataPoint(String deviceId, String sensorId,
                                                 String sensorType, Double value, String unit) {
         Long uid = currentUserId();
+        // 传感器类型未提供时自动查补
+        if (sensorType == null) {
+            sensorType = sensorRepository.findById(sensorId).map(Sensor::getType).orElse(null);
+        }
+        if (unit == null) {
+            unit = sensorRepository.findById(sensorId).map(Sensor::getUnit).orElse(null);
+        }
         return writeDataPoint(deviceId, sensorId, sensorType, value, unit, uid);
+    }
+
+    /** 供 Kafka Consumer 调用：标记来自 Kafka，避免循环重发 */
+    public DataPoint fromKafka(String deviceId, String sensorId, String sensorType,
+                                Double value, String unit, Long ownerId) {
+        FROM_KAFKA.set(true);
+        try {
+            return writeDataPoint(deviceId, sensorId, sensorType, value, unit, ownerId);
+        } finally {
+            FROM_KAFKA.remove();
+        }
     }
 
     /** 内部写入方法：允许直接指定 ownerId，供后台任务/仿真使用 */
@@ -193,6 +217,7 @@ public class DataService {
             } catch (Exception e) {
                 log.warn("TDengine write failed, fallback to PostgreSQL: {}", e.getMessage());
                 writeBuffer.add(dp);
+                flushPgBuffer();  // TDengine 失败时立即落盘 PostgreSQL
             }
         } else {
             writeBuffer.add(dp);
@@ -203,6 +228,11 @@ public class DataService {
 
         // 更新 Sensor 实体的实时值（前端显示用）
         updateSensorValue(deviceId, sensorId, value);
+
+        // WebSocket 实时推送
+        if (wsPush != null) {
+            wsPush.pushDeviceData(deviceId, sensorId, value, unit);
+        }
 
         sendKafkaTelemetry(deviceId, sensorId, sensorType, value, unit);
         safeUpdateShadow(deviceId, sensorId, value);
@@ -236,7 +266,7 @@ public class DataService {
 
     private void sendKafkaTelemetry(String deviceId, String sensorId, String sensorType,
                                      Double value, String unit) {
-        if (kafkaProducer == null) return;
+        if (kafkaProducer == null || Boolean.TRUE.equals(FROM_KAFKA.get())) return;
         try {
             Map<String, Object> msg = new HashMap<>();
             msg.put("deviceId", deviceId);

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+defineOptions({ name: 'Monitor' })
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useDeviceStore } from '../../stores/device'
 import { TrendCharts } from '@element-plus/icons-vue'
@@ -8,6 +9,12 @@ const deviceStore = useDeviceStore()
 const selectedDeviceId = ref('')
 const chartRefs = ref<Map<string, HTMLDivElement>>(new Map())
 const chartInstances = ref<Map<string, echarts.ECharts>>(new Map())
+
+function setChartRef(el: unknown, key: string) {
+  if (el instanceof HTMLDivElement) {
+    chartRefs.value.set(key, el)
+  }
+}
 const chartData = ref<Map<string, { times: string[]; values: number[] }>>(new Map())
 
 const MAX_POINTS = 40
@@ -239,7 +246,7 @@ onUnmounted(() => {
                   </span>
                 </div>
                 <div
-                  :ref="el => { if (el) chartRefs.set(`${selectedDeviceId}_${sensor.id}`, el as HTMLDivElement) }"
+                  :ref="(el) => setChartRef(el, `${selectedDeviceId}_${sensor.id}`)"
                   class="chart-container"
                 />
               </div>

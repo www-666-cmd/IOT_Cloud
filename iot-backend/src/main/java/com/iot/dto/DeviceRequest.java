@@ -7,6 +7,8 @@ import java.util.List;
 
 @Data
 public class DeviceRequest {
+    private String deviceId;
+
     @NotBlank(message = "设备名称不能为空")
     private String name;
 

@@ -86,13 +86,19 @@ app:
       device-telemetry: device.telemetry.v1
       device-status: device.status.v1
       alert-events: alert.events.v1
-  redis:
-    enabled: true  # 开发环境默认关闭，Redis 可用时改为 true
+  mqtt:
+    enabled: true
+    broker-url: tcp://[::1]:1883   # EMQX 默认 MQTT 端口
+    ws-url: ws://localhost:8083/mqtt    # EMQX WebSocket 端口（前端直连用）
+    client-id: iot-platform-server
+    topics:
+      telemetry: iot/+/telemetry
+      status: iot/+/status
+  redis: # 数据缓存
+    enabled: true
     device-online-ttl: 120
     alert-debounce-prefix: "alert:debounce:"
-
-  # TDengine 时序数据库配置
-  tdengine:
+  tdengine:   # TDengine 时序数据库配置
     enabled: true  # 开发环境默认关闭，生产开启
     url: jdbc:TAOS://172.21.180.214:6030/iot_telemetry
     username: root

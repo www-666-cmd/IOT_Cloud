@@ -1,4 +1,5 @@
 <script setup lang="ts">
+defineOptions({ name: 'Dashboard' })
 import { ref, onMounted, onUnmounted, markRaw } from 'vue'
 import { useDeviceStore } from '../../stores/device'
 import { useRouter } from 'vue-router'

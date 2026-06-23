@@ -46,6 +46,9 @@ public class AlertService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private RedisCacheService redis;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private WebSocketPushService wsPush;
+
     // ========== 规则管理 ==========
 
     public List<AlertRule> getAllRules() {
@@ -183,6 +186,9 @@ public class AlertService {
                         recordRepository.save(record);
                         log.info("ALERT triggered: {} [{}] device={} sensor={} value={}",
                                 rule.getName(), rule.getLevel(), deviceId, sensorType, value);
+                        if (wsPush != null) {
+                            wsPush.pushAlert(deviceId, rule.getLevel(), title);
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -195,13 +201,15 @@ public class AlertService {
         // 精确匹配设备ID
         List<AlertRule> deviceRules = ruleRepository.findByDeviceIdAndEnabledTrue(deviceId);
         if (!deviceRules.isEmpty()) return deviceRules.stream()
-                .filter(r -> r.getSensorType() == null || r.getSensorType().equals(sensorType))
+                .filter(r -> r.getSensorType() == null || sensorType == null
+                        || r.getSensorType().equals(sensorType))
                 .toList();
 
         // 按产品类型匹配
         if (deviceType != null) {
             return ruleRepository.findByProductTypeAndDeviceIdIsNullAndEnabledTrue(deviceType).stream()
-                    .filter(r -> r.getSensorType() == null || r.getSensorType().equals(sensorType))
+                    .filter(r -> r.getSensorType() == null || sensorType == null
+                            || r.getSensorType().equals(sensorType))
                     .toList();
         }
 

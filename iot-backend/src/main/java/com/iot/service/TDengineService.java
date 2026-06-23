@@ -62,7 +62,7 @@ public class TDengineService {
                     "  device_id   NCHAR(64), " +
                     "  sensor_id   NCHAR(64), " +
                     "  sensor_type NCHAR(50), " +
-                    "  value       DOUBLE, " +
+                    "  val       DOUBLE, " +
                     "  unit        NCHAR(20) " +
                     ") TAGS (" +
                     "  device_id_tag   NCHAR(64), " +
@@ -126,7 +126,7 @@ public class TDengineService {
 
             // 批量 INSERT
             StringBuilder sql = new StringBuilder("INSERT INTO iot_telemetry." + subTable +
-                    " (ts, device_id, sensor_id, sensor_type, value, unit) VALUES ");
+                    " (ts, device_id, sensor_id, sensor_type, val, unit) VALUES ");
 
             List<Object> params = new ArrayList<>();
             for (int i = 0; i < entry.getValue().size(); i++) {
@@ -170,7 +170,7 @@ public class TDengineService {
     public List<Map<String, Object>> queryLatest(String deviceId, String sensorId, int limit) {
         String subTable = "d_" + deviceId.replace("-", "_").replace(".", "_");
         StringBuilder sql = new StringBuilder(
-                "SELECT ts, device_id, sensor_id, sensor_type, value, unit " +
+                "SELECT ts, device_id, sensor_id, sensor_type, val , unit " +
                 "FROM iot_telemetry." + subTable);
         if (sensorId != null && !sensorId.isEmpty()) {
             sql.append(" WHERE sensor_id = '").append(sensorId).append("'");
@@ -193,7 +193,7 @@ public class TDengineService {
                                                  String interval) {
         String subTable = "d_" + deviceId.replace("-", "_").replace(".", "_");
         StringBuilder sql = new StringBuilder(
-                "SELECT ts, sensor_id, AVG(value) as avg_val, MAX(value) as max_val, MIN(value) as min_val " +
+                "SELECT ts, sensor_id, AVG(val) as avg_val, MAX(val) as max_val, MIN(val) as min_val " +
                 "FROM iot_telemetry." + subTable +
                 " WHERE ts >= '" + Timestamp.valueOf(from) + "' AND ts <= '" + Timestamp.valueOf(to) + "'");
 
@@ -222,7 +222,7 @@ public class TDengineService {
                                                          LocalDateTime from, LocalDateTime to,
                                                          String interval) {
         StringBuilder sql = new StringBuilder(
-                "SELECT ts, AVG(value) as avg_val, MAX(value) as max_val, MIN(value) as min_val " +
+                "SELECT ts, AVG(val) as avg_val, MAX(val) as max_val, MIN(val) as min_val " +
                 "FROM iot_telemetry.device_telemetry " +
                 "WHERE product_type = '").append(productType).append("'")
                 .append(" AND ts >= '").append(Timestamp.valueOf(from)).append("'")

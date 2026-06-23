@@ -1,4 +1,5 @@
 <script setup lang="ts">
+defineOptions({ name: 'DeviceList' })
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDeviceStore } from '../../stores/device'
@@ -38,6 +39,7 @@ const deviceForm = ref({
 })
 
 const sensorForm = ref({
+  id: '',
   name: '',
   type: '',
   dataType: 'float',
@@ -47,6 +49,7 @@ const sensorForm = ref({
 })
 
 const actuatorForm = ref({
+  id: '',
   name: '',
   type: '',
   commandType: 'toggle',
@@ -209,7 +212,7 @@ function showEditDialog(device: any) {
 }
 
 function openSensorDialog() {
-  sensorForm.value = { name: '', type: '', dataType: 'float', unit: '', min: 0, max: 100 }
+  sensorForm.value = { id: '', name: '', type: '', dataType: 'float', unit: '', min: 0, max: 100 }
   sensorDialogVisible.value = true
 }
 
@@ -219,7 +222,7 @@ function addSensor() {
     return
   }
   deviceForm.value.sensors.push({
-    id: 's_' + Date.now(),
+    id: sensorForm.value.id || 's_' + Date.now(),
     name: sensorForm.value.name,
     type: sensorForm.value.type,
     dataType: sensorForm.value.dataType,
@@ -237,7 +240,7 @@ function removeSensor(index: number) {
 }
 
 function openActuatorDialog() {
-  actuatorForm.value = { name: '', type: '', commandType: 'toggle', defaultValue: 'off', parameters: '' }
+  actuatorForm.value = { id: '', name: '', type: '', commandType: 'toggle', defaultValue: 'off', parameters: '' }
   actuatorDialogVisible.value = true
 }
 
@@ -247,7 +250,7 @@ function addActuator() {
     return
   }
   deviceForm.value.actuators.push({
-    id: 'a_' + Date.now(),
+    id: actuatorForm.value.id || 'a_' + Date.now(),
     name: actuatorForm.value.name,
     type: actuatorForm.value.type,
     commandType: actuatorForm.value.commandType,
@@ -843,6 +846,9 @@ onUnmounted(() => {
         <span class="sub-dialog-desc">配置数据采集传感器参数</span>
       </div>
       <el-form :model="sensorForm" label-width="80px" class="sensor-form-dialog">
+        <el-form-item label="传感器 ID">
+          <el-input v-model="sensorForm.id" placeholder="留空自动生成 (如 my-temp-sensor)" />
+        </el-form-item>
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="名称" required>
@@ -899,6 +905,9 @@ onUnmounted(() => {
         <span class="sub-dialog-desc">配置执行控制参数与指令类型</span>
       </div>
       <el-form :model="actuatorForm" label-width="80px" class="actuator-form-dialog">
+        <el-form-item label="执行器 ID">
+          <el-input v-model="actuatorForm.id" placeholder="留空自动生成 (如 my-switch-01)" />
+        </el-form-item>
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="名称" required>

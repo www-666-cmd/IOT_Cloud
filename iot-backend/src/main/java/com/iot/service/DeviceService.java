@@ -62,8 +62,10 @@ public class DeviceService {
     @Transactional
     public Device createDevice(DeviceRequest request) {
         Long uid = currentUserId();
+        String did = (request.getDeviceId() != null && !request.getDeviceId().isBlank())
+                ? request.getDeviceId() : "dev_" + UUID.randomUUID().toString().substring(0, 8);
         Device device = Device.builder()
-                .deviceId("dev_" + UUID.randomUUID().toString().substring(0, 8))
+                .deviceId(did)
                 .apiKey(UUID.randomUUID().toString().replace("-", ""))
                 .name(request.getName())
                 .type(request.getType())

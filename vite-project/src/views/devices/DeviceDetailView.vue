@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+defineOptions({ name: 'DeviceDetail' })
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDeviceStore } from '../../stores/device'
 import { ElMessage } from 'element-plus'
@@ -25,11 +26,18 @@ function copyApiKey() {
   }
 }
 
-const deviceId = route.params.id as string
+const deviceId = computed(() => route.params.id as string)
 const commandInput = ref('')
 const commandHistory = ref<{ command: string; time: string; response?: string; status?: string }[]>([])
 const activeTab = ref('overview')
 const refreshing = ref(false)
+
+// 路由参数变化时重新加载数据（KeepAlive 场景下 key）
+watch(deviceId, async (newId) => {
+  await deviceStore.fetchDeviceById(newId)
+  await loadCommandLogs()
+  deviceStore.startPollDevice(newId, 3000)
+})
 
 const device = computed(() => deviceStore.currentDevice)
 const actuatorCount = computed(() => ((device.value as any)?.actuators?.length) || 0)
@@ -43,7 +51,7 @@ async function refreshAll() {
   refreshing.value = true
   try {
     await Promise.all([
-      deviceStore.fetchDeviceById(deviceId),
+      deviceStore.fetchDeviceById(deviceId.value),
       loadCommandLogs()
     ])
     ElMessage.success('刷新成功')
@@ -58,7 +66,7 @@ async function sendCommand() {
   if (!commandInput.value.trim() || !device.value) return
   const cmd = commandInput.value.trim()
   try {
-    const result = await deviceStore.sendCommand(deviceId, cmd)
+    const result = await deviceStore.sendCommand(deviceId.value, cmd)
     commandHistory.value.unshift({
       command: cmd,
       time: new Date().toLocaleTimeString(),
@@ -78,7 +86,7 @@ async function sendCommand() {
 
 async function loadCommandLogs() {
   try {
-    const logs = await realApi.getCommandLogs(deviceId)
+    const logs = await realApi.getCommandLogs(deviceId.value)
     commandHistory.value = logs.map((l: any) => ({
       command: l.command,
       time: new Date(l.sentAt).toLocaleTimeString(),
@@ -97,9 +105,9 @@ function getStatusText(status: string) {
 }
 
 onMounted(async () => {
-  await deviceStore.fetchDeviceById(deviceId)
+  await deviceStore.fetchDeviceById(deviceId.value)
   await loadCommandLogs()
-  deviceStore.startPollDevice(deviceId, 3000)
+  deviceStore.startPollDevice(deviceId.value, 3000)
 })
 
 onUnmounted(() => {
@@ -176,8 +184,20 @@ onUnmounted(() => {
                     <div class="sensor-card">
                       <div class="sensor-card-header">
                         <span class="sensor-type-badge">{{ sensor.type }}</span>
+                        <el-button
+                          size="small"
+                          text
+                          type="primary"
+                          class="copy-id-btn"
+                          @click="navigator.clipboard.writeText(sensor.id); ElMessage.success('传感器 ID 已复制')"
+                        >
+                          <el-icon :size="12"><CopyDocument /></el-icon>
+                        </el-button>
                       </div>
                       <div class="sensor-name">{{ sensor.name }}</div>
+                      <div class="sensor-id-row">
+                        <code class="sensor-id-code">{{ sensor.id }}</code>
+                      </div>
                       <div class="sensor-value">
                         {{ sensor.value.toFixed(2) }}
                         <span class="sensor-unit">{{ sensor.unit }}</span>
@@ -342,7 +362,33 @@ onUnmounted(() => {
 }
 
 .sensor-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 6px;
+}
+
+.copy-id-btn {
+  padding: 2px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.sensor-card:hover .copy-id-btn {
+  opacity: 1;
+}
+
+.sensor-id-row {
+  margin-bottom: 4px;
+}
+
+.sensor-id-code {
+  font-family: monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  padding: 1px 6px;
+  border-radius: 3px;
 }
 
 .sensor-type-badge {

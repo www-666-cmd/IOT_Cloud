@@ -4,9 +4,9 @@ import random
 import math
 
 # ========== 设备信息 ==========
-DEVICE_ID  = "dev_b087404c"
-API_KEY    = "b1c432fb86d8477a96170ce13a220c5e"
-SENSOR_ID  = "s_1780667505763"   # 温度传感器A1
+DEVICE_ID  = "dev_8291adf5"
+API_KEY    = "7b08d20b48bc487b8a8316bc4f050ced"
+SENSOR_ID  = "s_1781665808480"   # 温度传感器A1
 BASE_URL   = "http://127.0.0.1:8080"
 
 def fetch_latest(limit: int = 3):

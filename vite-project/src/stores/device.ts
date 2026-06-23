@@ -2,12 +2,14 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api } from '../api'
 import type { Device, DataPoint } from '../api/mockApi'
+import { useWebSocket } from './websocket'
 
 export const useDeviceStore = defineStore('device', () => {
   const devices = ref<Device[]>([])
   const currentDevice = ref<Device | null>(null)
   const deviceData = ref<DataPoint[]>([])
   const loading = ref(false)
+  let wsUnsubscribe: (() => void) | null = null
 
   const onlineCount = computed(() => devices.value.filter(d => d.status === 'online').length)
   const offlineCount = computed(() => devices.value.filter(d => d.status === 'offline').length)
@@ -82,16 +84,47 @@ export const useDeviceStore = defineStore('device', () => {
 
   function startRealtimeUpdates(interval: number = 3000) {
     if (pollTimer) clearInterval(pollTimer)
+
+    // WebSocket 实时更新传感器值（优先）
+    const ws = useWebSocket()
+    wsUnsubscribe = ws.onAllDeviceData((data) => {
+      const dev = devices.value.find(d => d.id === data.deviceId)
+      if (dev) {
+        // 更新设备状态
+        dev.status = 'online'
+        // 更新传感器值
+        const sensor = (dev as any).sensors?.find((s: any) => s.id === data.sensorId)
+        if (sensor) sensor.value = data.value
+        // 更新执行器值
+        const actuator = (dev as any).actuators?.find((a: any) => a.id === data.sensorId)
+        if (actuator) actuator.value = data.value
+      }
+      // 同步更新当前设备
+      if (currentDevice.value?.id === data.deviceId) {
+        const cs = (currentDevice.value as any).sensors?.find((s: any) => s.id === data.sensorId)
+        if (cs) cs.value = data.value
+        const ca = (currentDevice.value as any).actuators?.find((a: any) => a.id === data.sensorId)
+        if (ca) ca.value = data.value
+      }
+    })
+
+    // HTTP 轮询兜底（5s 全量刷新，防止 WebSocket 丢包）
     pollTimer = setInterval(async () => {
       try {
         const fresh: Device[] = await api.getDevices()
-        devices.value = fresh
+        const prevMap = new Map(devices.value.map(d => [d.id, d]))
+        for (const fd of fresh) {
+          const existing = prevMap.get(fd.id)
+          if (!existing) { devices.value.push(fd); continue }
+          existing.status = fd.status
+          existing.lastActive = fd.lastActive
+        }
         if (currentDevice.value) {
           const updated = fresh.find((d: Device) => d.id === currentDevice.value!.id)
           if (updated) currentDevice.value = updated
         }
-      } catch { /* ignore poll errors */ }
-    }, interval)
+      } catch { /* ignore */ }
+    }, 5000)
   }
 
   /** 静默更新设备值：只合并变化字段，不替换对象，避免整表重渲染 */
@@ -122,6 +155,10 @@ export const useDeviceStore = defineStore('device', () => {
     if (pollTimer) {
       clearInterval(pollTimer)
       pollTimer = null
+    }
+    if (wsUnsubscribe) {
+      wsUnsubscribe()
+      wsUnsubscribe = null
     }
   }
 

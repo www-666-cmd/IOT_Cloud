@@ -4,7 +4,7 @@ import time
 # ========== 设备信息 ==========
 DEVICE_ID = "dev_414305e8"     # 电动开关
 API_KEY = "f37ff332325d47b7b261e3fb22a949c6"
-SENSOR_ID = "a_1781577362875"  # 开关执行器
+SENSOR_ID = "a_1781577362865"  # 开关执行器
 BASE_URL = "http://127.0.0.1:8080"
 
 def send_command(command: str, actuator: str = "电动开关"):
