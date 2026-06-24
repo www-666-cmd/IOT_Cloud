@@ -1,5 +1,5 @@
 package com.iot.controller;
-
+// 系统健康检查控制器
 import com.iot.dto.ApiResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;

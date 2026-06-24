@@ -1,5 +1,5 @@
 package com.iot.config;
-
+//  Spring Security 的 JWT 身份认证过滤器，每个请求仅执行一次，用于实现前后端 JWT 无登录态鉴权
 import com.iot.service.AuthService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

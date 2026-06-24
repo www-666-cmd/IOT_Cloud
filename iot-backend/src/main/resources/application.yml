@@ -18,6 +18,7 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
+    open-in-view: false
     properties:
       hibernate:
         format_sql: true
@@ -88,12 +89,13 @@ app:
       alert-events: alert.events.v1
   mqtt:
     enabled: true
-    broker-url: tcp://[::1]:1883   # EMQX 默认 MQTT 端口
+    broker-url: tcp://172.21.180.214:1883   # EMQX 默认 MQTT 端口
     ws-url: ws://localhost:8083/mqtt    # EMQX WebSocket 端口（前端直连用）
     client-id: iot-platform-server
     topics:
-      telemetry: iot/+/telemetry
-      status: iot/+/status
+      telemetry: iot/+/telemetry  # 控制传感器设备数据上报
+      status: iot/+/status        #
+      command: iot/+/command
   redis: # 数据缓存
     enabled: true
     device-online-ttl: 120

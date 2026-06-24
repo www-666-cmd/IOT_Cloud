@@ -46,8 +46,7 @@ public class TDengineService {
     private void createDatabase() {
         try {
             tdengineJdbc.execute("CREATE DATABASE IF NOT EXISTS iot_telemetry " +
-                    "KEEP 365 DAYS 10 BLOCKS 4 " +
-                    "UPDATE 1 " +
+                    "DURATION 365d " +
                     "CACHEMODEL 'LAST_ROW'");
         } catch (Exception e) {
             log.warn("TDengine create database failed (may already exist): {}", e.getMessage());

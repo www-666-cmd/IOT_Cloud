@@ -1,5 +1,5 @@
 package com.iot.controller;
-
+// 通过 userId 实现数据隔离，实现用户个性化 settings 管理能力。
 import com.iot.dto.ApiResponse;
 import com.iot.model.SystemSettings;
 import com.iot.model.User;

@@ -1,5 +1,5 @@
 package com.iot.config;
-
+// JWT工具类
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;

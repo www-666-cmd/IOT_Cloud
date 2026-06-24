@@ -1,5 +1,5 @@
 package com.iot.config;
-
+// Spring Security 的核心配置类，作用是：定义整个系统的安全策略（认证 + 授权 + 请求过滤链 + 无状态会话模型），同时集成 JWT 和设备 API Key 双认证机制。
 import com.iot.repository.DeviceRepository;
 import com.iot.repository.UserRepository;
 import com.iot.service.AuthService;

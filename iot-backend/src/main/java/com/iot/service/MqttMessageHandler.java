@@ -14,7 +14,7 @@ import java.util.Map;
  * 转发到 DataService 统一管线（TDengine → Kafka → Redis → 告警）
  */
 @Service
-@ConditionalOnProperty(name = "app.mqtt.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "app.mqtt.enabled", havingValue = "true", matchIfMissing = false)
 @Slf4j
 public class MqttMessageHandler {
 
@@ -63,6 +63,15 @@ public class MqttMessageHandler {
                             deviceRepository.save(d);
                         });
                         log.info("MQTT status: {} → {}", deviceId, status);
+                    }
+                }
+                case "command" -> {
+                    String command = (String) data.get("command");
+                    String actuator = (String) data.get("actuator");
+                    if (command != null && actuator != null) {
+                        String result = dataService.sendCommand(deviceId, command,
+                                java.util.Map.of("actuator", actuator));
+                        log.info("MQTT command: {} → {} {}", deviceId, actuator, command);
                     }
                 }
             }

@@ -1,5 +1,5 @@
 package com.iot.config;
-
+// Spring Security 自定义一次性请求过滤器，用于物联网设备通过 API 密钥免账号密码鉴权上报数据
 import com.iot.model.Device;
 import com.iot.model.User;
 import com.iot.repository.DeviceRepository;

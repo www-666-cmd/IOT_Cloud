@@ -1,5 +1,5 @@
 package com.iot.config;
-
+// 全局跨域CORS配置类，用于解决跨域请求拦截问题
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;

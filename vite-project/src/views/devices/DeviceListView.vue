@@ -5,8 +5,8 @@ import { useRouter } from 'vue-router'
 import { useDeviceStore } from '../../stores/device'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Plus, Search, Edit, Delete, View, Upload, Cpu, DataLine, VideoPlay, VideoPause,
-  Odometer, Switch, Refresh, Document, SwitchButton
+  Plus, Search, Edit, Delete, View, Odometer, Switch, Refresh, Document, SwitchButton,
+  Cpu, VideoPlay, VideoPause
 } from '@element-plus/icons-vue'
 import { api } from '../../api'
 
@@ -356,25 +356,6 @@ function viewDetail(device: any) {
   router.push(`/devices/${device.id}`)
 }
 
-async function handleTriggerUpload() {
-  try {
-    await api.triggerUploadOnce()
-    ElMessage.success('已触发一次模拟数据上发，请刷新查看')
-    await deviceStore.fetchDevices()
-  } catch (e: any) {
-    ElMessage.error(e.message || '触发失败')
-  }
-}
-
-async function handleTriggerDelivery() {
-  try {
-    await api.triggerDeliveryOnce()
-    ElMessage.success('已触发一次模拟命令下报')
-  } catch (e: any) {
-    ElMessage.error(e.message || '触发失败')
-  }
-}
-
 async function toggleSimulation() {
   try {
     if (simRunning.value) {
@@ -483,29 +464,15 @@ onUnmounted(() => {
         <el-icon :size="18"><Cpu /></el-icon>
         <span class="sim-label">模拟测试</span>
         <el-input-number
-          v-model="simInterval"
-          :min="1"
-          :max="60"
-          size="small"
-          style="width: 100px"
-          :disabled="simRunning"
+          v-model="simInterval" :min="1" :max="60" size="small"
+          style="width: 100px" :disabled="simRunning"
         />
         <span class="sim-unit">秒间隔</span>
       </div>
       <div class="sim-bar-right">
-        <el-button
-          :type="simRunning ? 'danger' : 'success'"
-          size="small"
-          @click="toggleSimulation"
-        >
+        <el-button :type="simRunning ? 'danger' : 'success'" size="small" @click="toggleSimulation">
           <el-icon><component :is="simRunning ? VideoPause : VideoPlay" /></el-icon>
           {{ simRunning ? '停止模拟' : '开始自动模拟' }}
-        </el-button>
-        <el-button size="small" type="primary" plain @click="handleTriggerUpload">
-          <el-icon><Upload /></el-icon> 数据上发
-        </el-button>
-        <el-button size="small" type="warning" plain @click="handleTriggerDelivery">
-          <el-icon><DataLine /></el-icon> 命令下报
         </el-button>
       </div>
     </div>
@@ -967,37 +934,14 @@ onUnmounted(() => {
 }
 
 .simulation-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 16px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  margin-bottom: 16px;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 16px; background: var(--bg-card);
+  border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 16px;
 }
-
-.sim-bar-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-secondary);
-}
-
-.sim-label {
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.sim-unit {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.sim-bar-right {
-  display: flex;
-  gap: 8px;
-}
+.sim-bar-left { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); }
+.sim-label { font-weight: 600; font-size: 14px; }
+.sim-unit { font-size: 12px; color: var(--text-muted); }
+.sim-bar-right { display: flex; gap: 8px; }
 
 .filter-bar {
   display: flex;
@@ -1436,12 +1380,7 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
-  .simulation-bar {
-    flex-direction: column;
-    gap: 10px;
-    align-items: flex-start;
-  }
-
+  .simulation-bar { flex-direction: column; gap: 10px; align-items: flex-start; }
   .filter-bar {
     flex-wrap: wrap;
   }

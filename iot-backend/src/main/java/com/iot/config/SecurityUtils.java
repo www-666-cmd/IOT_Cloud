@@ -1,5 +1,6 @@
 package com.iot.config;
-
+// Spring Security 的上下文工具类（Security Helper / Facade），
+// 作用是：从当前线程的安全上下文中提取登录用户信息，并进一步映射到数据库中的用户实体。
 import com.iot.model.User;
 import com.iot.repository.UserRepository;
 import org.springframework.security.core.Authentication;

@@ -1,5 +1,5 @@
 package com.iot.config;
-
+// MQTT 配置类
 import com.iot.service.MqttMessageHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.paho.client.mqttv3.*;
@@ -34,6 +34,9 @@ public class MqttConfig {
     @Value("${app.mqtt.topics.status:iot/+/status}")
     private String statusTopic;
 
+    @Value("${app.mqtt.topics.command:iot/+/command}")
+    private String commandTopic;
+
     private final MqttMessageHandler handler;
 
     public MqttConfig(MqttMessageHandler handler) {
@@ -41,59 +44,59 @@ public class MqttConfig {
     }
 
     @Bean
-    public MqttClient mqttClient() throws MqttException {
+    public MqttClient mqttClient() {
         log.info("MQTT creating client, brokerUrl={}, clientId={}", brokerUrl, clientId);
 
-        MqttClient client = new MqttClient(brokerUrl, clientId, new MemoryPersistence());
-
-        MqttConnectOptions options = new MqttConnectOptions();
-        options.setAutomaticReconnect(true);
-        options.setCleanSession(true);
-        options.setConnectionTimeout(10);
-        options.setKeepAliveInterval(30);
-        options.setMqttVersion(MqttConnectOptions.MQTT_VERSION_3_1_1);
-
-        if (username != null && !username.isBlank()) {
-            options.setUserName(username);
-            options.setPassword(password != null ? password.toCharArray() : new char[0]);
-        }
-
-        client.setCallback(new MqttCallbackExtended() {
-            @Override
-            public void connectComplete(boolean reconnect, String serverURI) {
-                log.info("MQTT connect complete, reconnect={}, serverURI={}", reconnect, serverURI);
-                subscribeTopics(client);
-            }
-
-            @Override
-            public void connectionLost(Throwable cause) {
-                log.warn("MQTT connection lost: {}", cause == null ? "unknown" : cause.getMessage());
-            }
-
-            @Override
-            public void messageArrived(String topic, MqttMessage message) {
-                String payload = new String(message.getPayload(), StandardCharsets.UTF_8);
-                handler.handleMessage(topic, payload);
-            }
-
-            @Override
-            public void deliveryComplete(IMqttDeliveryToken token) {
-            }
-        });
-
         try {
+            MqttClient client = new MqttClient(brokerUrl, clientId, new MemoryPersistence());
+
+            MqttConnectOptions options = new MqttConnectOptions();
+            options.setAutomaticReconnect(true);
+            options.setCleanSession(true);
+            options.setConnectionTimeout(10);
+            options.setKeepAliveInterval(30);
+            options.setMqttVersion(MqttConnectOptions.MQTT_VERSION_3_1_1);
+
+            if (username != null && !username.isBlank()) {
+                options.setUserName(username);
+                options.setPassword(password != null ? password.toCharArray() : new char[0]);
+            }
+
+            client.setCallback(new MqttCallbackExtended() {
+                @Override
+                public void connectComplete(boolean reconnect, String serverURI) {
+                    log.info("MQTT connect complete, reconnect={}, serverURI={}", reconnect, serverURI);
+                    subscribeTopics(client);
+                }
+
+                @Override
+                public void connectionLost(Throwable cause) {
+                    log.warn("MQTT connection lost: {}", cause == null ? "unknown" : cause.getMessage());
+                }
+
+                @Override
+                public void messageArrived(String topic, MqttMessage message) {
+                    String payload = new String(message.getPayload(), StandardCharsets.UTF_8);
+                    handler.handleMessage(topic, payload);
+                }
+
+                @Override
+                public void deliveryComplete(IMqttDeliveryToken token) {
+                }
+            });
+
             client.connect(options);
             subscribeTopics(client);
             log.info("MQTT connected to {}", brokerUrl);
+            return client;
         } catch (MqttException e) {
-            log.warn("MQTT connect failed, application will continue. brokerUrl={}, reasonCode={}, message={}",
-                    brokerUrl, e.getReasonCode(), e.getMessage());
+            log.warn("MQTT unavailable (broker not running?), application will continue. "
+                    + "brokerUrl={}, reasonCode={}", brokerUrl, e.getReasonCode());
+            return null;
         } catch (Exception e) {
-            log.warn("MQTT connect failed, application will continue. brokerUrl={}, error={}",
-                    brokerUrl, e.getMessage());
+            log.warn("MQTT unavailable, application will continue. error={}", e.getMessage());
+            return null;
         }
-
-        return client;
     }
 
     private void subscribeTopics(MqttClient client) {
@@ -101,7 +104,8 @@ public class MqttConfig {
             if (client.isConnected()) {
                 client.subscribe(telemetryTopic, 1);
                 client.subscribe(statusTopic, 1);
-                log.info("MQTT subscribed topics: {}, {}", telemetryTopic, statusTopic);
+                client.subscribe(commandTopic, 1);
+                log.info("MQTT subscribed topics: {}, {}, {}", telemetryTopic, statusTopic, commandTopic);
             } else {
                 log.warn("MQTT subscribe skipped because client is not connected");
             }

@@ -1,5 +1,5 @@
 package com.iot.config;
-
+// 在 Spring Boot 应用启动时，自动创建 Kafka Topic（如果不存在）并完成基础配置管理，同时通过配置开关控制是否启用。
 import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

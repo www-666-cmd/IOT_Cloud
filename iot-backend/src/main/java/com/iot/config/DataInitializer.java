@@ -1,5 +1,5 @@
 package com.iot.config;
-
+// 启动时自动执行的初始化数据类
 import com.iot.model.Device;
 import com.iot.model.Sensor;
 import com.iot.model.User;

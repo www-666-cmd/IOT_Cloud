@@ -51,19 +51,29 @@ async function fetchAlerts() {
 }
 
 async function handleAcknowledge(id: number) {
+  const alert = alertRecords.value.find(a => a.id === id)
+  // 乐观移除：先从列表中消失
+  alertRecords.value = alertRecords.value.filter(a => a.id !== id)
   try {
     await realApi.acknowledgeAlert(id)
-    ElMessage.success('告警已确认')
+    ElMessage.success(alert ? `已确认: ${alert.title?.split('] ')[1] || alert.title}` : '告警已确认')
+  } catch {
+    // 失败则恢复
     fetchAlerts()
-  } catch { /* ignore */ }
+    ElMessage.error('操作失败')
+  }
 }
 
 async function handleResolve(id: number) {
+  const alert = alertRecords.value.find(a => a.id === id)
+  alertRecords.value = alertRecords.value.filter(a => a.id !== id)
   try {
     await realApi.resolveAlert(id)
-    ElMessage.success('告警已解决')
+    ElMessage.success(alert ? `已解决: ${alert.title?.split('] ')[1] || alert.title}` : '告警已解决')
+  } catch {
     fetchAlerts()
-  } catch { /* ignore */ }
+    ElMessage.error('操作失败')
+  }
 }
 
 function getLevelTag(level: string) {

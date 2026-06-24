@@ -60,10 +60,9 @@ test/
 │       └── service/       # 业务逻辑层
 │
 ├── test_code/             # Python 设备模拟脚本
-│   ├── test1.py           # 光照传感器 HTTP 上传
-│   ├── test2.py           # 超声波数据查询
-│   ├── test3.py           # 执行器控制
-│   └── test4.py           # MQTT 设备端示例
+│   ├── test1_1.py         # 光照传感器获取数据
+│   ├── test1_2.py         # 光照传感器数据查询
+│   ├── test1_3.py         # 执行器控制
 └── README.md
 ```
 
@@ -169,18 +168,18 @@ test/
 # Redis（推荐）
 docker run -d --name redis -p 6379:6379 redis:7-alpine
 
-# EMQX MQTT Broker（可选）
+# EMQX MQTT Broker
 docker run -d --name emqx \
   -p 1883:1883 -p 8083:8083 -p 18083:18083 \
   emqx/emqx:latest
 
-# Kafka（可选）
+# Kafka
 # 启动 Zookeeper + Kafka Server
 cd d:/kafka_2.12-3.9.2
 bin/windows/zookeeper-server-start.bat config/zookeeper.properties
 bin/windows/kafka-server-start.bat config/server.properties
 
-# TDengine（可选）
+# TDengine
 docker run -d --name tdengine -p 6030:6030 -p 6041:6041 tdengine/tdengine:3.3.3.0
 ```
 
@@ -212,14 +211,10 @@ npm run dev
 pip install requests paho-mqtt
 
 # HTTP 上传 + 查询
-python test_code/test1.py    # 光照传感器
-python test_code/test2.py    # 超声波数据查询
-
-# 执行器控制（HTTP）
-python test_code/test3.py
-
-# MQTT 设备端示例
-python test_code/test4.py
+python test_code/test1_1.py    # 获取光照传感器
+python test_code/test1_2.py    # 光照数据查询
+# 执行器控制
+python test_code/test1_3.py
 ```
 
 ## 数据流架构
@@ -238,7 +233,7 @@ python test_code/test4.py
                     ┌─────────────────────┼─────────────────────┐
                     ▼                     ▼                     ▼
                 TDengine               Kafka                PostgreSQL
-            (时序存储主库)        (异步消息缓冲)           (兜底存储)
+            (时序存储主库)          (异步消息缓冲)            (兜底存储)
                     │                     │
                     │              KafkaConsumerService
                     │               → DataService.fromKafka()
