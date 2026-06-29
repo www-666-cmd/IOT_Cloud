@@ -164,6 +164,14 @@ public class TDengineService {
     // ========== 数据查询 ==========
 
     /**
+     * 判断异常是否为 TDengine 子表不存在（新设备无数据，正常情况）
+     */
+    private boolean isTableNotExist(Exception e) {
+        String msg = e.getMessage() != null ? e.getMessage() : "";
+        return msg.contains("Table does not exist") || msg.contains("0x80002662");
+    }
+
+    /**
      * 查询单设备最新 N 条数据
      */
     public List<Map<String, Object>> queryLatest(String deviceId, String sensorId, int limit) {
@@ -179,7 +187,11 @@ public class TDengineService {
         try {
             return tdengineJdbc.queryForList(sql.toString());
         } catch (Exception e) {
-            log.warn("TDengine query failed for device {}", deviceId, e);
+            if (isTableNotExist(e)) {
+                log.debug("TDengine sub-table {} not exist yet (no data for device {})", subTable, deviceId);
+            } else {
+                log.warn("TDengine query failed for device {}", deviceId, e);
+            }
             return List.of();
         }
     }
@@ -191,26 +203,54 @@ public class TDengineService {
                                                  LocalDateTime from, LocalDateTime to,
                                                  String interval) {
         String subTable = "d_" + deviceId.replace("-", "_").replace(".", "_");
-        StringBuilder sql = new StringBuilder(
-                "SELECT ts, sensor_id, AVG(val) as avg_val, MAX(val) as max_val, MIN(val) as min_val " +
-                "FROM iot_telemetry." + subTable +
-                " WHERE ts >= '" + Timestamp.valueOf(from) + "' AND ts <= '" + Timestamp.valueOf(to) + "'");
-
-        if (sensorId != null && !sensorId.isEmpty()) {
-            sql.append(" AND sensor_id = '").append(sensorId).append("'");
-        }
 
         if (interval != null && !interval.isEmpty()) {
+            // 降采样聚合：INTERVAL 使 ts 成为窗口起始时间，GROUP BY 合法
+            StringBuilder sql = new StringBuilder(
+                    "SELECT ts, sensor_id, AVG(val) as avg_val, MAX(val) as max_val, MIN(val) as min_val " +
+                    "FROM iot_telemetry." + subTable +
+                    " WHERE ts >= '" + Timestamp.valueOf(from) + "' AND ts <= '" + Timestamp.valueOf(to) + "'");
+
+            if (sensorId != null && !sensorId.isEmpty()) {
+                sql.append(" AND sensor_id = '").append(sensorId).append("'");
+            }
+
             sql.append(" INTERVAL(").append(interval).append(") FILL(linear)");
-        }
+            sql.append(" GROUP BY sensor_id");
 
-        sql.append(" GROUP BY sensor_id");
+            try {
+                return tdengineJdbc.queryForList(sql.toString());
+            } catch (Exception e) {
+                if (isTableNotExist(e)) {
+                    log.debug("TDengine sub-table {} not exist yet (no data for device {})", subTable, deviceId);
+                } else {
+                    log.warn("TDengine range query failed for device {}", deviceId, e);
+                }
+                return List.of();
+            }
+        } else {
+            // 无降采样：返回原始时序数据（与 queryLatest 列一致，兼容 mapTdRowToDataPoint）
+            StringBuilder sql = new StringBuilder(
+                    "SELECT ts, device_id, sensor_id, sensor_type, val, unit " +
+                    "FROM iot_telemetry." + subTable +
+                    " WHERE ts >= '" + Timestamp.valueOf(from) + "' AND ts <= '" + Timestamp.valueOf(to) + "'");
 
-        try {
-            return tdengineJdbc.queryForList(sql.toString());
-        } catch (Exception e) {
-            log.warn("TDengine range query failed for device {}", deviceId, e);
-            return List.of();
+            if (sensorId != null && !sensorId.isEmpty()) {
+                sql.append(" AND sensor_id = '").append(sensorId).append("'");
+            }
+
+            sql.append(" ORDER BY ts");
+
+            try {
+                return tdengineJdbc.queryForList(sql.toString());
+            } catch (Exception e) {
+                if (isTableNotExist(e)) {
+                    log.debug("TDengine sub-table {} not exist yet (no data for device {})", subTable, deviceId);
+                } else {
+                    log.warn("TDengine range query failed for device {}", deviceId, e);
+                }
+                return List.of();
+            }
         }
     }
 

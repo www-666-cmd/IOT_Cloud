@@ -95,6 +95,8 @@ function exportData() {
   ElMessage.success('数据导出成功')
 }
 
+const actuatorTypeSet = new Set(['switch', 'relay', 'motor', 'valve', 'buzzer', 'led', 'fan', 'pump'])
+
 function getDeviceName(deviceId: string) {
   const device = deviceStore.devices.find(d => d.id === deviceId)
   return device?.name || deviceId
@@ -102,8 +104,24 @@ function getDeviceName(deviceId: string) {
 
 function getSensorName(deviceId: string, sensorId: string) {
   const device = deviceStore.devices.find(d => d.id === deviceId)
-  const sensor = device?.sensors?.find(s => s.id === sensorId)
+  const allSensors = [...((device as any)?.sensors || []), ...((device as any)?.actuators || [])]
+  const sensor = allSensors.find((s: any) => s.id === sensorId)
   return sensor?.name || sensorId
+}
+
+function isActuator(deviceId: string, sensorId: string) {
+  const device = deviceStore.devices.find(d => d.id === deviceId)
+  const allSensors = [...((device as any)?.sensors || []), ...((device as any)?.actuators || [])]
+  const sensor = allSensors.find((s: any) => s.id === sensorId)
+  return sensor ? actuatorTypeSet.has(sensor.type?.toLowerCase()) : false
+}
+
+function formatValue(row: any) {
+  if (row.value == null) return '-'
+  if (isActuator(row.deviceId, row.sensorId)) {
+    return Number(row.value) === 1 ? 'ON' : 'OFF'
+  }
+  return Number(row.value).toFixed(2)
 }
 
 onMounted(() => {
@@ -172,7 +190,7 @@ onMounted(() => {
         </el-table-column>
         <el-table-column prop="value" label="数值" min-width="100">
           <template #default="{ row }">
-            <span style="font-weight: 500;">{{ row.value != null ? Number(row.value).toFixed(2) : '-' }}</span>
+            <span style="font-weight: 500;">{{ formatValue(row) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="timestamp" label="时间" min-width="160">

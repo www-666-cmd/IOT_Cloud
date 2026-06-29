@@ -43,7 +43,7 @@ spring:
 
   # Kafka 配置 - 高并发数据缓冲
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: 172.21.180.214:9092
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -75,6 +75,9 @@ management:
   health:
     redis:
       enabled: false
+  metrics:
+    enable:
+      kafka: false
 
 app:
   jwt:

@@ -62,7 +62,8 @@ test/
 ├── test_code/             # Python 设备模拟脚本
 │   ├── test1_1.py         # 光照传感器获取数据
 │   ├── test1_2.py         # 光照传感器数据查询
-│   ├── test1_3.py         # 执行器控制
+│   └── test1_3.py         # 执行器控制
+├── API_DOCUMENTATION.md   # 完整 API 接口文档
 └── README.md
 ```
 
@@ -99,9 +100,11 @@ test/
 
 ### 5. 命令下发
 - 执行器远程控制（ON / OFF / Toggle）
-- 指令发送 → 后端更新执行器状态 → 前端实时反馈
-- 发送内容列显示 + 指令时间记录
+- **REST API** — `POST /api/data/{deviceId}/command`
+- **MQTT** — `iot/{deviceId}/command` 主题下发（平台自动接收并处理）
+- 指令执行后自动写入 TDengine 时序记录，支持历史数据查询
 - 指令日志记录与查询
+- 执行器历史数据显示 ON / OFF 标签（DataCenterView 自动识别执行器类型）
 
 ### 6. 告警引擎
 - 自定义告警规则（阈值、条件表达式，如 `value > 80`）
@@ -125,10 +128,11 @@ test/
 
 ### 9. 接口文档
 - 在线 API 文档页面（`/docs`）
+- 完整 Markdown 接口文档（[API_DOCUMENTATION.md](./API_DOCUMENTATION.md)），涵盖全部 39 个端点
 - 快速测试示例（curl + Python，含真实设备 ID）
 - 完整参数表格（路径 / Query / Body）
 - 请求 / 响应示例 + 一键复制
-- 通用错误码说明（200 / 401 / 404 / 500）
+- MQTT 主题说明与 payload 格式
 
 ### 10. 暗色模式
 - 一键切换亮色 / 暗色主题（localStorage 持久化）
@@ -262,7 +266,7 @@ python test_code/test1_3.py
 
 ## API 接口一览
 
-在线接口文档：登录后访问 `/docs`
+完整接口文档见 [API_DOCUMENTATION.md](./API_DOCUMENTATION.md)，共 **39 个 API 端点**。
 
 ### 认证方式
 
@@ -271,37 +275,54 @@ python test_code/test1_3.py
 | API Key | `X-Api-Key: {32位Key}` | 设备详情页复制 |
 | Bearer Token | `Authorization: Bearer {token}` | `POST /api/auth/login` |
 
-### 数据上报
+### 认证（5 个接口）
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
+| POST | `/api/auth/login` | 账号密码登录 |
+| POST | `/api/auth/register` | 用户注册 |
+| POST | `/api/auth/send-code` | 发送短信验证码 |
+| POST | `/api/auth/login-by-phone` | 手机验证码登录 |
+| GET | `/api/auth/me` | 获取当前用户信息 |
+
+### 数据上报与查询（5 个接口）
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/data/{deviceId}` | 时间范围查询 |
+| GET | `/api/data/{deviceId}/history` | 聚合降采样（支持 interval 参数） |
 | POST | `/api/data/{deviceId}` | 传感器数据上报 |
+| GET | `/api/data/{deviceId}/latest` | 最新 N 条数据 |
 | POST | `/api/data/{deviceId}/command` | 执行器命令下发 |
 
-### 数据查询
+### 设备管理（7 个接口）
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/data/{deviceId}/latest` | 最新 N 条 |
-| GET | `/api/data/{deviceId}` | 时间范围查询 |
-| GET | `/api/data/{deviceId}/history` | 聚合降采样 |
+| GET / POST | `/api/devices` | 设备列表 / 创建设备 |
+| GET / PUT / DELETE | `/api/devices/{deviceId}` | 详情 / 更新 / 删除 |
+| PATCH | `/api/devices/{deviceId}/status` | 切换上下线状态 |
+| GET | `/api/devices/stats` | 设备统计 |
 
-### 设备管理
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET/POST | `/api/devices` | 列表 / 创建 |
-| GET/PUT/DELETE | `/api/devices/{deviceId}` | 详情 / 更新 / 删除 |
-| PATCH | `/api/devices/{deviceId}/status` | 切换上下线 |
-
-### 告警
+### 告警（12 个接口）
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET/POST | `/api/alerts/rules` | 规则列表 / 创建 |
-| GET | `/api/alerts/records` | 告警记录查询 |
-| PATCH | `/api/alerts/records/{id}/acknowledge` | 确认 |
-| PATCH | `/api/alerts/records/{id}/resolve` | 解决 |
+| GET / POST | `/api/alerts/rules` | 规则列表 / 创建 |
+| GET / PUT / DELETE | `/api/alerts/rules/{id}` | 单条规则 CRUD |
+| PATCH | `/api/alerts/rules/{id}/toggle` | 启用/禁用规则 |
+| GET | `/api/alerts/records` | 告警记录（分页+筛选） |
+| PATCH | `/api/alerts/records/{id}/acknowledge` | 确认告警 |
+| PATCH | `/api/alerts/records/{id}/resolve` | 解决告警 |
+| GET | `/api/alerts/stats` | 告警统计 |
+
+### 其他
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET / PUT | `/api/settings` | 系统设置 |
+| GET / POST | `/api/simulation/**` | 模拟控制（9 个接口） |
+| GET | `/api/health` | 健康检查 |
 
 ## 配置说明
 
@@ -310,17 +331,29 @@ python test_code/test1_3.py
 ```yaml
 app:
   kafka:
-    enabled: false     # Kafka 开关
+    enabled: true
+    topics:
+      device-raw: device.raw.v1
+      device-telemetry: device.telemetry.v1
+      alert-events: alert.events.v1
   mqtt:
-    enabled: false     # MQTT 开关（EMQX）
+    enabled: true
+    broker-url: tcp://172.21.180.214:1883
+    topics:
+      telemetry: iot/+/telemetry
+      status: iot/+/status
+      command: iot/+/command
   redis:
-    enabled: true      # Redis 开关
+    enabled: true
   tdengine:
-    enabled: false     # TDengine 开关
+    enabled: true
+    url: jdbc:TAOS://172.21.180.214:6030/iot_telemetry
+    batch-size: 1000
+    batch-interval-ms: 5000
 ```
 
-- 开发环境：只开 Redis，其余关闭。数据走 HTTP → PostgreSQL → Redis 路径。
-- 生产环境：全部开启，数据走 HTTP/MQTT → Kafka → TDengine → Redis 全链路。
+- 开发环境：Redis 开启，Kafka / MQTT / TDengine 可按需关闭。数据走 HTTP → PostgreSQL → Redis 路径。
+- 生产环境：全部开启，数据走 HTTP/MQTT → TDengine → Kafka → Redis 全链路。TDengine 写入采用攒批模式（1000 条或 5s 间隔），不可用时自动降级到 PostgreSQL。
 
 ### 公网部署
 
@@ -341,6 +374,3 @@ cpolar http 5173    # 前端（Vite dev）
 
 可查看实时设备连接数、消息吞吐量、Topic 列表。
 
-## 许可证
-
-MIT License

@@ -338,6 +338,11 @@ public class DataService {
                     device.setLastActive(LocalDateTime.now());
                     device.setStatus("ONLINE");
                     deviceRepository.save(device);
+
+                    // 写入 TDengine 时序记录，供历史数据查询
+                    writeDataPoint(deviceId, sensor.getId(), sensor.getType(),
+                            newValue, sensor.getUnit(), device.getOwnerId());
+
                     String state = newValue > 0.5 ? "ON" : "OFF";
                     return "命令 [" + command + "] → " + actuatorName + " 已" + state;
                 }
@@ -460,7 +465,7 @@ public class DataService {
         DataPoint dp = new DataPoint();
         dp.setDeviceId((String) row.get("device_id"));
         dp.setSensorId((String) row.get("sensor_id"));
-        dp.setValue(row.get("value") != null ? ((Number) row.get("value")).doubleValue() : 0.0);
+        dp.setValue(row.get("val") != null ? ((Number) row.get("val")).doubleValue() : 0.0);
         Object ts = row.get("ts");
         if (ts instanceof Timestamp) {
             dp.setTimestamp(((Timestamp) ts).toLocalDateTime());

@@ -26,6 +26,11 @@ function copyApiKey() {
   }
 }
 
+function copySensorId(id: string) {
+  navigator.clipboard.writeText(id)
+  ElMessage.success('传感器 ID 已复制')
+}
+
 const deviceId = computed(() => route.params.id as string)
 const commandInput = ref('')
 const commandHistory = ref<{ command: string; time: string; response?: string; status?: string }[]>([])
@@ -189,7 +194,7 @@ onUnmounted(() => {
                           text
                           type="primary"
                           class="copy-id-btn"
-                          @click="navigator.clipboard.writeText(sensor.id); ElMessage.success('传感器 ID 已复制')"
+                          @click="copySensorId(sensor.id)"
                         >
                           <el-icon :size="12"><CopyDocument /></el-icon>
                         </el-button>
